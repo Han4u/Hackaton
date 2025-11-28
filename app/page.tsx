@@ -1,7 +1,7 @@
-/* eslint-disable @next/next/no-img-element */
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from 'next/image';
 import { ethers } from "ethers";
 import { motion } from "framer-motion";
 import contractABI from "./abi.json"; 
@@ -171,11 +171,22 @@ export default function Home() {
       if (isMobile) {
         // Tell user to open this site in the MetaMask mobile in-app browser
         // or provide a deep-link URL to open this URL inside the app automatically.
-        const deepLink = `https://metamask.app.link/dapp/${window.location.host}`;
         // Give a clearer option for phone users
         if (confirm("MetaMask tidak terdeteksi di browser ini. Buka situs ini di aplikasi MetaMask (direkomendasikan) sekarang?")) {
+          // if the app is running on localhost or an http:// URL, deep linking might fail because
+          // the MetaMask app browser cannot reach localhost on your machine. Warn user first.
+          const currentHref = typeof window !== 'undefined' ? window.location.href : '';
+          const host = typeof window !== 'undefined' ? window.location.hostname : '';
+          if (host.includes('localhost') || host === '127.0.0.1' || currentHref.startsWith('http://')) {
+            if (!confirm('Perhatian: URL ini tampak berjalan di localhost atau menggunakan HTTP. MetaMask in-app browser mungkin tidak dapat mengakses URL ini.\n\nPilihan: (OK) Buka MetaMask lalu buka URL ini secara manual di browser internal, atau Batalkan dan deploy/ekspos URL ke jaringan publik (contoh: gunakan ngrok).\n\nLanjutkan untuk mencoba membuka MetaMask?')) {
+              return;
+            }
+          }
+
           // navigate to deep-link which will open the MetaMask app and load this dapp in the internal browser
-          window.location.href = deepLink;
+          // use the full encoded URL so the app opens to the exact page (not just host)
+          const deepLinkFull = `https://metamask.app.link/dapp/${encodeURIComponent(currentHref)}`;
+          window.location.href = deepLinkFull;
         }
       } else {
         alert("MetaMask tidak terdeteksi. Pastikan extension MetaMask sudah terpasang atau gunakan browser yang mendukung injection (e.g., MetaMask's browser).\nIf you are on mobile, open this site inside the MetaMask app browser or install the MetaMask mobile app.");
@@ -261,7 +272,8 @@ export default function Home() {
 
           // fetch tokenURI
           try {
-            const readProvider = new ethers.JsonRpcProvider('https://sepolia.publicgoods.network');
+            // pass explicit Sepolia chain id to avoid provider auto-detection and retries
+            const readProvider = new ethers.JsonRpcProvider('https://sepolia.publicgoods.network', 11155111);
             const readContract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, readProvider);
             // read tokenURI and try multiple strategies to obtain an image
             const tokenURI: string = await readContract.tokenURI(tokenIdNum);
@@ -384,7 +396,7 @@ export default function Home() {
     <main className="min-h-screen bg-[#050511] text-white font-sans selection:bg-purple-500 selection:text-white">
       
       {/* NAVBAR */}
-      <nav className="fixed top-0 w-full p-4 border-b border-slate-800 bg-[#050511]/90 backdrop-blur z-50 flex justify-between items-center">
+      <nav className="fixed top-0 w-full p-4 sm:p-4 border-b border-slate-800 bg-[#050511]/90 backdrop-blur z-50 flex justify-between items-center">
         <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-linear-to-br from-purple-600 to-blue-600 rounded flex items-center justify-center font-bold text-lg">C</div>
             <h1 className="text-lg font-bold tracking-wide text-slate-200">
@@ -402,7 +414,7 @@ export default function Home() {
                 </span>
             </div>
             ) : (
-                <button onClick={loginWithMetaMask} className="text-sm font-bold text-slate-300 hover:text-white transition-colors">
+                <button onClick={loginWithMetaMask} className="text-sm sm:text-sm md:text-sm font-bold text-slate-300 hover:text-white transition-colors px-2 py-1">
                     Login
                 </button>
             )}
@@ -417,20 +429,20 @@ export default function Home() {
              <div className="inline-block px-4 py-1 rounded-full bg-blue-900/30 border border-blue-500/30 text-blue-400 text-xs font-mono mb-6 uppercase tracking-wider">
                 Web3 Learning Platform
             </div>
-            <h1 className="text-5xl md:text-7xl font-extrabold mb-6 leading-tight text-white">
+            <h1 className="text-6xl md:text-7xl font-extrabold mb-6 leading-tight text-white">
               Unlock Your <br/>
               <span className="text-transparent bg-clip-text bg-linear-to-r from-purple-500 to-blue-500">
                 Digital Certificate
               </span>
             </h1>
-            <p className="text-slate-400 text-lg max-w-2xl mx-auto mb-10 leading-relaxed">
+            <p className="text-slate-400 text-md md:text-lg max-w-3xl mx-auto mb-10 leading-relaxed">
               Platform pembelajaran terdesentralisasi. Selesaikan modul, buktikan keahlianmu, dan dapatkan sertifikat NFT yang abadi di Blockchain.
             </p>
             
             <button 
               onClick={loginWithMetaMask}
               disabled={isLoggingIn}
-              className="bg-white hover:bg-slate-200 text-black px-8 py-4 rounded-xl text-lg font-bold shadow-[0_0_20px_rgba(255,255,255,0.3)] transition-all transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed"
+              className="bg-white hover:bg-slate-200 text-black px-6 sm:px-8 py-3 sm:py-4 rounded-xl text-base sm:text-lg font-bold shadow-[0_0_20px_rgba(255,255,255,0.3)] transition-all transform hover:scale-105 disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isLoggingIn ? (
                   <span className="flex items-center gap-2">
@@ -445,34 +457,54 @@ export default function Home() {
               <div className="mt-4">
                 <div className="text-xs text-slate-400 mb-2">MetaMask tidak terdeteksi di browser ini.</div>
                 <div className="flex justify-center gap-2">
-                  <a
-                    href={typeof window !== 'undefined' ? `https://metamask.app.link/dapp/${window.location.host}` : '#'}
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    onClick={() => {
+                      if (typeof window === 'undefined') return;
+                      const currentHref = window.location.href;
+                      const host = window.location.hostname;
+                      // warn user about localhost / http when necessary
+                      if ((host.includes('localhost') || host === '127.0.0.1' || currentHref.startsWith('http://')) && !confirm('Perhatian: URL ini tampak berjalan di localhost atau menggunakan HTTP. MetaMask in-app browser mungkin tidak dapat mengakses URL ini.\n\nPilihan: (OK) Buka MetaMask lalu buka URL ini secara manual di browser internal, atau Batalkan dan deploy/ekspos URL ke jaringan publik (contoh: gunakan ngrok).\n\nLanjutkan untuk mencoba membuka MetaMask?')) {
+                        return;
+                      }
+
+                      const deepLinkFull = `https://metamask.app.link/dapp/${encodeURIComponent(currentHref)}`;
+                      // open as new tab / app intent
+                      window.open(deepLinkFull, '_blank');
+                    }}
                     className="px-4 py-2 rounded-lg bg-linear-to-r from-blue-600 to-purple-600 text-sm font-bold shadow-lg hover:opacity-95 transition-colors"
                   >
                     Buka di MetaMask App
-                  </a>
-                  <button onClick={() => alert('Jika app MetaMask sudah terpasang, buka aplikasi MetaMask lalu gunakan browser internalnya untuk membuka situs ini. Atau gunakan WalletConnect jika tersedia.') } className="px-3 py-2 rounded-lg border border-slate-700 text-sm hover:bg-slate-800 transition-all">
+                  </button>
+                  <button onClick={() => {
+                      const host = typeof window !== 'undefined' ? window.location.hostname : '';
+                      if (host.includes('localhost') || host === '127.0.0.1') {
+                        alert('Info: Saat mengembangkan di localhost, MetaMask in-app browser tidak akan dapat mengakses halaman pada komputer Anda. Untuk menguji di HP, deploy ke public URL atau gunakan layanan tunneling seperti ngrok, atau buka MetaMask app -> Browser -> masukkan URL aplikasi Anda.');
+                      } else {
+                        alert('Jika MetaMask tidak terbuka otomatis, coba: 1) Pastikan MetaMask mobile terpasang, 2) Berikan izin untuk membuka app, 3) Buka MetaMask dan jalankan URL ini dari browser internal MetaMask. Alternatif: gunakan WalletConnect untuk koneksi tanpa in-app browser.');
+                      }
+                    }} className="px-3 py-2 rounded-lg border border-slate-700 text-sm hover:bg-slate-800 transition-all">
                     Bantuan
                   </button>
                 </div>
               </div>
             )}
 
-            <div className="mt-16 grid grid-cols-3 gap-4 max-w-lg mx-auto opacity-90">
+            <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-lg mx-auto opacity-90">
                {/* Show course thumbnails here (three boxes under the login CTA) */}
-               {courses.slice(0, 3).map((course) => {
+                 {courses.slice(0, 3).map((course) => {
                  const file = course.thumbnail ?? `course-${String(course.title).toLowerCase().replace(/[^a-z0-9]+/g, '-')}.svg`;
                  return (
-                   <div key={course.id} className={`h-20 rounded-lg overflow-hidden border border-slate-800 bg-linear-to-tr group transition-transform transform hover:-translate-y-1`}> 
-                     <img
-                       src={`/${file}`}
-                       alt={`${course.title} thumbnail`}
-                       className="w-full h-full object-contain block opacity-95 group-hover:opacity-100 bg-[#0f1724]"
-                       style={{ maxHeight: '80px' }}
-                       onError={(e) => { /* keep it graceful if the file is missing */ (e.target as HTMLImageElement).style.opacity = '0.05'; (e.target as HTMLImageElement).style.display = 'block'; }}
-                     />
+                   <div key={course.id} className={`h-28 sm:h-20 rounded-lg overflow-hidden border border-slate-800 bg-linear-to-tr group transition-transform transform hover:-translate-y-1`}> 
+                     <div className="relative w-full h-full">
+                       <Image
+                         src={`/${file}`}
+                         alt={`${course.title} thumbnail`}
+                         fill
+                         unoptimized
+                         className="object-contain block opacity-95 group-hover:opacity-100 bg-[#0f1724]"
+                         // onError isn't ideal with next/image but keep graceful behavior minimal
+                       />
+                     </div>
                    </div>
                  );
                })}
@@ -512,7 +544,7 @@ export default function Home() {
                         onClick={() => startLearning(course)}
                     >
                         <div className={`h-32 w-full ${course.color} flex items-center justify-center`}>
-                            <span className="text-6xl drop-shadow-lg transform group-hover:scale-110 transition-transform duration-300">{course.icon}</span>
+                            <span className="text-7xl sm:text-6xl drop-shadow-lg transform group-hover:scale-110 transition-transform duration-300">{course.icon}</span>
                         </div>
                         <div className="p-5">
                             <div className="text-xs font-bold tracking-wider text-slate-500 mb-1 uppercase">Course</div>
@@ -664,7 +696,7 @@ export default function Home() {
 
                         <div className="relative group cursor-pointer mb-8 w-full max-w-xs mx-auto">
                           {certImageUrl ? (
-                            <img src={certImageUrl} alt={`Certificate #${mintedTokenId ?? ''}`} className="rounded-lg border border-slate-700 w-full opacity-95 group-hover:opacity-100 transition-opacity" />
+                            <Image src={certImageUrl} alt={`Certificate #${mintedTokenId ?? ''}`} width={900} height={600} unoptimized className="rounded-lg border border-slate-700 w-full opacity-95 group-hover:opacity-100 transition-opacity" />
                           ) : (
                             <div className="rounded-lg border border-slate-700 w-full p-6 text-slate-400 bg-[#081021]">
                               <div className="text-sm mb-2">Gambar sertifikat tidak ditemukan / sudah dihapus.</div>
