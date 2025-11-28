@@ -1,9 +1,11 @@
+/* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { motion } from "framer-motion";
 import contractABI from "./abi.json"; 
+import Link from "next/link"; 
 
 // --- 1. DEFINISI TIPE DATA ---
 interface Question {
@@ -19,6 +21,10 @@ interface Course {
   color: string;
   icon: string;
   tags: string[];
+  // relative file name for thumbnail stored in /public
+  thumbnail?: string;
+  // optional video URL (mp4 or other) shown when user opens the course before quiz
+  video?: string;
   questions: Question[];
 }
 
@@ -29,7 +35,8 @@ declare global {
   }
 }
 
-const CONTRACT_ADDRESS = "0x6a276e3D4948421B01cCdf4c85C209A6FEaD3AE0"; 
+// 🔥 ALAMAT KONTRAK BARU (HARUS SAMA DENGAN VERIFY/PAGE.TSX)
+const CONTRACT_ADDRESS = "0x2445C0C2Cd556AAf622f6f1b7AE2Bad7Af0923D8"; 
 const SEPOLIA_CHAIN_ID = "0xaa36a7";
 
 export default function Home() {
@@ -38,11 +45,17 @@ export default function Home() {
   const [txHash, setTxHash] = useState("");
   // State baru untuk loading saat login
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isMobileDetected, setIsMobileDetected] = useState(false);
+  const [hasProvider, setHasProvider] = useState(false);
   
-  const [viewState, setViewState] = useState<"landing" | "dashboard" | "quiz" | "success">("landing");
+  const [viewState, setViewState] = useState<"landing" | "dashboard" | "learning" | "quiz" | "success">("landing");
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [isVideoWatched, setIsVideoWatched] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [score, setScore] = useState(0);
+  const [mintedTokenId, setMintedTokenId] = useState<number | null>(null);
+  const [certImageUrl, setCertImageUrl] = useState<string | null>(null);
+  const [mintedTokenURI, setMintedTokenURI] = useState<string | null>(null);
 
   // --- DATA KURSUS ---
   const courses: Course[] = [
@@ -52,6 +65,8 @@ export default function Home() {
       description: "Pelajari dasar teknologi rantai blok & desentralisasi.",
       color: "bg-orange-500", 
       icon: "⛓️",
+      thumbnail: "course-blockchain.svg",
+      video: "https://www.youtube.com/watch?v=pVGGOn_ntdg",
       tags: ["THEORY", "BEGINNER"],
       questions: [
         { q: "Apa sifat utama data di Blockchain?", opts: ["Bisa diedit", "Abadi (Immutable)", "Rahasia"], a: 1 },
@@ -65,6 +80,8 @@ export default function Home() {
       description: "Membuat perjanjian otomatis tanpa perantara.",
       color: "bg-yellow-400",
       icon: "📜",
+      thumbnail: "course-smart-contract.svg",
+      video: "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
       tags: ["SOLIDITY", "INTERMEDIATE"],
       questions: [
         { q: "Bahasa pemrograman Smart Contract di Ethereum?", opts: ["Python", "Solidity", "Java"], a: 1 },
@@ -78,6 +95,8 @@ export default function Home() {
       description: "Memahami aset digital unik dan kepemilikan virtual.",
       color: "bg-blue-500",
       icon: "🦄",
+      thumbnail: "course-nft.svg",
+      video: "https://storage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4",
       tags: ["ART", "BEGINNER"],
       questions: [
         { q: "Kepanjangan NFT adalah?", opts: ["Non-Fungible Token", "New File Type", "No Fun Today"], a: 0 },
@@ -107,10 +126,18 @@ export default function Home() {
 
   // --- 🔥 FUNGSI LOGIN DENGAN TANDA TANGAN (SIGNATURE) 🔥 ---
   const loginWithMetaMask = async () => {
+    // Mobile browsers often don't inject window.ethereum unless the page
+    // opens inside the MetaMask in-app browser. If the provider is missing on
+    // mobile we give a better hint instead of asking the user to "install" MetaMask.
+    const isMobile = typeof navigator !== 'undefined' && /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent);
+
     if (typeof window.ethereum !== "undefined") {
       try {
         setIsLoggingIn(true);
         await checkNetwork(); // 1. Cek Jaringan dulu
+
+        // Tambahkan jeda waktu singkat untuk sinkronisasi Metamask di HP
+        await new Promise(resolve => setTimeout(resolve, 1000)); 
 
         const provider = new ethers.BrowserProvider(window.ethereum);
         
@@ -123,6 +150,9 @@ export default function Home() {
         const message = `Selamat datang di CertiBlock!\n\nSilakan tekan konfirmasi pesan ini untuk verifikasi login.\n\nWallet: ${account}\nTimestamp: ${new Date().toLocaleString()}`;
 
         // 4. PAKSA USER TANDA TANGAN (POP-UP METAMASK MUNCUL)
+        // Panggil alert untuk UX di HP sebelum sign
+        alert("⚠️ PERHATIAN! sebelim lanjut anda haru login ke akun metamask anda dan tekan 'Sign' untuk masuk.");
+        
         const signature = await signer.signMessage(message);
 
         // 5. JIKA TANDA TANGAN BERHASIL -> LOGIN
@@ -138,16 +168,40 @@ export default function Home() {
         setIsLoggingIn(false);
       }
     } else {
-      alert("Install MetaMask dulu!");
+      if (isMobile) {
+        // Tell user to open this site in the MetaMask mobile in-app browser
+        // or provide a deep-link URL to open this URL inside the app automatically.
+        const deepLink = `https://metamask.app.link/dapp/${window.location.host}`;
+        // Give a clearer option for phone users
+        if (confirm("MetaMask tidak terdeteksi di browser ini. Buka situs ini di aplikasi MetaMask (direkomendasikan) sekarang?")) {
+          // navigate to deep-link which will open the MetaMask app and load this dapp in the internal browser
+          window.location.href = deepLink;
+        }
+      } else {
+        alert("MetaMask tidak terdeteksi. Pastikan extension MetaMask sudah terpasang atau gunakan browser yang mendukung injection (e.g., MetaMask's browser).\nIf you are on mobile, open this site inside the MetaMask app browser or install the MetaMask mobile app.");
+      }
     }
   };
 
-  const startQuiz = (course: Course) => {
+  
+
+  const startLearning = (course: Course) => {
     setSelectedCourse(course);
     setCurrentQuestion(0);
     setScore(0);
-    setViewState("quiz");
+    setIsVideoWatched(false);
+    setViewState("learning");
   };
+
+  // Track whether the user is on mobile so we can present the MetaMask deep-link
+  useEffect(() => {
+    if (typeof navigator !== 'undefined') {
+      const mobile = /Android|iPhone|iPad|iPod|Opera Mini|IEMobile|Mobile/i.test(navigator.userAgent);
+      setIsMobileDetected(mobile);
+      // check provider presence after first render
+      setHasProvider(typeof window !== 'undefined' && typeof window.ethereum !== 'undefined');
+    }
+  }, []);
 
   const handleAnswer = (index: number) => {
     if (!selectedCourse) return;
@@ -171,15 +225,157 @@ export default function Home() {
       const contract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, signer);
 
       console.log("Minting...");
-      const tx = await contract.mintSertifikat(); 
-      await tx.wait(); 
+      // Panggil fungsi tanpa argumen karena kita menggunakan _msgSender() di Solidity
+      const tx = await contract.mintSertifikat();
+      const receipt = await tx.wait();
 
       setTxHash(tx.hash);
+
+      // Try to extract the minted tokenId from Transfer event in the receipt
+      try {
+        let foundTokenId: string | null = null;
+        for (const log of receipt.logs) {
+          // only parse logs emitted by our contract address
+          if (log.address && log.address.toLowerCase() === String(contract.address).toLowerCase()) {
+            try {
+              const parsed = contract.interface.parseLog(log);
+              if (parsed && parsed.name === 'Transfer') {
+                // args: from, to, tokenId
+                const tokenIdArg = parsed.args[2];
+                // BigInt -> string
+                const tokenIdStr = String(tokenIdArg?.toString?.() ?? tokenIdArg);
+                if (tokenIdStr) {
+                  foundTokenId = tokenIdStr;
+                  break;
+                }
+              }
+            } catch {
+              // not an event this interface can parse, ignore
+            }
+          }
+        }
+
+        if (foundTokenId !== null) {
+          const tokenIdNum = Number(foundTokenId);
+          setMintedTokenId(tokenIdNum);
+
+          // fetch tokenURI
+          try {
+            const readProvider = new ethers.JsonRpcProvider('https://sepolia.publicgoods.network');
+            const readContract = new ethers.Contract(CONTRACT_ADDRESS, contractABI, readProvider);
+            // read tokenURI and try multiple strategies to obtain an image
+            const tokenURI: string = await readContract.tokenURI(tokenIdNum);
+            setMintedTokenURI(tokenURI);
+
+            const normalizeIpfs = (uri: string) => uri.replace(/^ipfs:\/\/(ipfs\/)?/, 'https://cloudflare-ipfs.com/ipfs/');
+
+            // If tokenURI itself looks like an image link (ends with an image extension), use it directly
+            let resolvedImage: string | null = null;
+
+            const trySetImage = async (candidate: string) => {
+              try {
+                // Normalize ipfs candidates
+                const url = candidate.startsWith('ipfs://') ? normalizeIpfs(candidate) : candidate;
+                // Quick fetch to verify it's reachable
+                const resp = await fetch(url, { method: 'HEAD' });
+                if (resp && resp.ok) {
+                  // HEAD succeeded, treat candidate as valid image/url
+                  resolvedImage = url;
+                  return true;
+                }
+              } catch {
+                // HEAD sometimes blocked; fallback to try GET and check content-type
+                try {
+                  const getResp = await fetch(candidate.startsWith('ipfs://') ? normalizeIpfs(candidate) : candidate);
+                  if (getResp && getResp.ok) {
+                    const contentType = getResp.headers.get('content-type') || '';
+                    if (contentType.startsWith('image/') || candidate.match(/\.(png|jpe?g|gif|svg|webp)$/i)) {
+                      resolvedImage = candidate.startsWith('ipfs://') ? normalizeIpfs(candidate) : candidate;
+                      return true;
+                    }
+                  }
+                } catch {
+                  // ignore
+                }
+              }
+              return false;
+            };
+
+            // 1) If tokenURI already looks like an image, try that first
+            if (tokenURI.match(/\.(png|jpe?g|gif|svg|webp)$/i) || tokenURI.startsWith('ipfs://')) {
+              if (await trySetImage(tokenURI)) {
+                setCertImageUrl(resolvedImage);
+              }
+            }
+
+            // 2) If tokenURI looks like JSON metadata, fetch it and look for image fields
+            if (!resolvedImage) {
+              try {
+                const httpUri = tokenURI.startsWith('ipfs://') ? normalizeIpfs(tokenURI) : tokenURI;
+                const metaResp = await fetch(httpUri);
+                if (metaResp.ok) {
+                  const meta = await metaResp.json();
+                  // Support several possible image fields
+                  const imageFields = ['image', 'image_url', 'imageUrl', 'imageURI'];
+                  for (const f of imageFields) {
+                    const val = meta[f];
+                    if (val) {
+                      if (await trySetImage(String(val))) {
+                        setCertImageUrl(resolvedImage);
+                        break;
+                      }
+                    }
+                  }
+
+                  // if still not resolved, and metadata contains a relative path like "images/1.png", try baseTokenURI
+                  if (!resolvedImage) {
+                    const base = meta?.base_uri || meta?.baseURI || null;
+                    if (base && typeof base === 'string') {
+                      const candidate = base.endsWith('/') ? `${base}${tokenIdNum}` : `${base}/${tokenIdNum}`;
+                      if (await trySetImage(candidate)) setCertImageUrl(resolvedImage);
+                    }
+                  }
+                }
+              } catch {
+                // ignore JSON fetch issues, we'll try contract baseTokenURI next
+              }
+            }
+
+            // 3) fallback - use contract.baseTokenURI() and attempt common patterns
+            if (!resolvedImage) {
+              try {
+                const baseUri: string = await readContract.baseTokenURI();
+                if (baseUri) {
+                  const candidates = [
+                    `${baseUri}${tokenIdNum}`,
+                    `${baseUri}${tokenIdNum}.png`,
+                    `${baseUri}${tokenIdNum}.jpg`,
+                    `${baseUri}${tokenIdNum}.jpeg`,
+                    `${baseUri}${tokenIdNum}.json`,
+                  ];
+                  for (const c of candidates) {
+                    if (await trySetImage(c)) {
+                      setCertImageUrl(resolvedImage);
+                      break;
+                    }
+                  }
+                }
+              } catch {
+                // no baseTokenURI or fetch failed
+              }
+            }
+          } catch {
+            console.warn('Failed to fetch tokenURI or metadata after mint');
+          }
+        }
+      } catch {
+        console.warn('Could not determine tokenId from receipt');
+      }
       setIsLoading(false);
     } catch (error) {
       console.error("Gagal:", error);
       setIsLoading(false);
-      alert("Transaksi Gagal. Cek saldo Sepolia.");
+      alert("Transaksi Gagal. Cek saldo Sepolia dan pastikan alamat kontrak benar.");
     }
   };
 
@@ -190,24 +386,27 @@ export default function Home() {
       {/* NAVBAR */}
       <nav className="fixed top-0 w-full p-4 border-b border-slate-800 bg-[#050511]/90 backdrop-blur z-50 flex justify-between items-center">
         <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-purple-600 to-blue-600 rounded flex items-center justify-center font-bold text-lg">C</div>
+            <div className="w-8 h-8 bg-linear-to-br from-purple-600 to-blue-600 rounded flex items-center justify-center font-bold text-lg">C</div>
             <h1 className="text-lg font-bold tracking-wide text-slate-200">
-                Certi<span className="text-blue-500">Block</span>
+                Certi<span className="text-blue-700">Block</span>
             </h1>
         </div>
         
-        {walletAddress ? (
-          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span className="font-mono text-xs text-slate-400">
-              {walletAddress.substring(0, 6)}...{walletAddress.substring(walletAddress.length - 4)}
-            </span>
-          </div>
-        ) : (
-            <button onClick={loginWithMetaMask} className="text-sm font-bold text-slate-300 hover:text-white transition-colors">
-                Login
-            </button>
-        )}
+        <div className="flex items-center gap-4"> 
+           
+            {walletAddress ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-900 border border-slate-800 rounded-lg">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span className="font-mono text-xs text-slate-400">
+                {walletAddress.substring(0, 6)}...{walletAddress.substring(walletAddress.length - 4)}
+                </span>
+            </div>
+            ) : (
+                <button onClick={loginWithMetaMask} className="text-sm font-bold text-slate-300 hover:text-white transition-colors">
+                    Login
+                </button>
+            )}
+        </div>
       </nav>
 
       <div className="max-w-5xl mx-auto pt-32 px-6 pb-20">
@@ -220,7 +419,7 @@ export default function Home() {
             </div>
             <h1 className="text-5xl md:text-7xl font-extrabold mb-6 leading-tight text-white">
               Unlock Your <br/>
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-purple-500 to-blue-500">
+              <span className="text-transparent bg-clip-text bg-linear-to-r from-purple-500 to-blue-500">
                 Digital Certificate
               </span>
             </h1>
@@ -241,10 +440,42 @@ export default function Home() {
               ) : "🚀 Login with MetaMask"}
             </button>
 
-            <div className="mt-16 grid grid-cols-3 gap-4 opacity-50 max-w-lg mx-auto">
-               <div className="h-20 bg-slate-800 rounded-lg animate-pulse"></div>
-               <div className="h-20 bg-slate-800 rounded-lg animate-pulse delay-75"></div>
-               <div className="h-20 bg-slate-800 rounded-lg animate-pulse delay-150"></div>
+            {/* If on mobile and provider isn't injected show a helper deep-link button */}
+            {isMobileDetected && !hasProvider && (
+              <div className="mt-4">
+                <div className="text-xs text-slate-400 mb-2">MetaMask tidak terdeteksi di browser ini.</div>
+                <div className="flex justify-center gap-2">
+                  <a
+                    href={typeof window !== 'undefined' ? `https://metamask.app.link/dapp/${window.location.host}` : '#'}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2 rounded-lg bg-linear-to-r from-blue-600 to-purple-600 text-sm font-bold shadow-lg hover:opacity-95 transition-colors"
+                  >
+                    Buka di MetaMask App
+                  </a>
+                  <button onClick={() => alert('Jika app MetaMask sudah terpasang, buka aplikasi MetaMask lalu gunakan browser internalnya untuk membuka situs ini. Atau gunakan WalletConnect jika tersedia.') } className="px-3 py-2 rounded-lg border border-slate-700 text-sm hover:bg-slate-800 transition-all">
+                    Bantuan
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-16 grid grid-cols-3 gap-4 max-w-lg mx-auto opacity-90">
+               {/* Show course thumbnails here (three boxes under the login CTA) */}
+               {courses.slice(0, 3).map((course) => {
+                 const file = course.thumbnail ?? `course-${String(course.title).toLowerCase().replace(/[^a-z0-9]+/g, '-')}.svg`;
+                 return (
+                   <div key={course.id} className={`h-20 rounded-lg overflow-hidden border border-slate-800 bg-linear-to-tr group transition-transform transform hover:-translate-y-1`}> 
+                     <img
+                       src={`/${file}`}
+                       alt={`${course.title} thumbnail`}
+                       className="w-full h-full object-contain block opacity-95 group-hover:opacity-100 bg-[#0f1724]"
+                       style={{ maxHeight: '80px' }}
+                       onError={(e) => { /* keep it graceful if the file is missing */ (e.target as HTMLImageElement).style.opacity = '0.05'; (e.target as HTMLImageElement).style.display = 'block'; }}
+                     />
+                   </div>
+                 );
+               })}
             </div>
             <p className="mt-4 text-xs text-slate-600">Please sign the message to verify ownership.</p>
           </motion.div>
@@ -258,6 +489,17 @@ export default function Home() {
                     <h2 className="text-3xl font-bold text-white mb-2 font-mono">Available Modules</h2>
                     <p className="text-slate-400">Pilih topik untuk memulai sertifikasi.</p>
                 </div>
+
+                {/* NEW: show verification feature after login */}
+                <div className="text-right">
+                  
+                  <div className="mt-2 text-xs text-slate-400">gunakan tombol di bawah untuk memeriksa sertifikat.</div>
+                  <div className="mt-3 flex gap-2 justify-end">
+                      <Link href={`/verify?owner=${walletAddress}`} className="px-3 py-1 rounded-md bg-slate-800 border border-slate-700 text-xs hover:bg-slate-700 transition-colors">
+                        Buka Verifikasi
+                      </Link>
+                  </div>
+                </div>
             </div>
 
             {/* GRID LAYOUT */}
@@ -267,7 +509,7 @@ export default function Home() {
                         key={course.id}
                         whileHover={{ y: -5 }}
                         className="bg-[#0f1524] border border-slate-800 rounded-xl overflow-hidden cursor-pointer group hover:border-slate-600 transition-all"
-                        onClick={() => startQuiz(course)}
+                        onClick={() => startLearning(course)}
                     >
                         <div className={`h-32 w-full ${course.color} flex items-center justify-center`}>
                             <span className="text-6xl drop-shadow-lg transform group-hover:scale-110 transition-transform duration-300">{course.icon}</span>
@@ -336,6 +578,78 @@ export default function Home() {
           </motion.div>
         )}
 
+        {/* VIEW: LEARNING - show course video before the quiz */}
+        {walletAddress && viewState === "learning" && selectedCourse && (
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="max-w-3xl mx-auto">
+            <button
+              onClick={() => setViewState("dashboard")}
+              className="mb-6 text-slate-500 hover:text-white text-sm flex items-center gap-2"
+            >
+              ← Back to Dashboard
+            </button>
+
+            <div className="bg-[#0f1524] border border-slate-800 p-8 rounded-2xl relative overflow-hidden text-center">
+              <div className="flex items-center gap-3 mb-6 justify-center">
+                <span className="text-3xl">{selectedCourse.icon}</span>
+                <div>
+                  <h2 className="text-2xl font-bold text-white">{selectedCourse.title}</h2>
+                  <p className="text-sm text-slate-400">Tonton video pengantar sebelum memulai kuis</p>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                {selectedCourse.video ? (
+                  // Support both mp4 files and YouTube links. For YouTube we use an iframe
+                  // and provide a 'Mark as watched' control because we can't detect playback end
+                  (selectedCourse.video.includes('youtube.com') || selectedCourse.video.includes('youtu.be')) ? (
+                    <div className="w-full max-w-2xl mx-auto rounded-lg border border-slate-700 bg-black overflow-hidden">
+                      <div className="relative" style={{ paddingTop: '56.25%' }}>
+                        {/* embed Youtube */}
+                        <iframe
+                          src={selectedCourse.video.includes('watch?v=') ? selectedCourse.video.replace('watch?v=', 'embed/') : selectedCourse.video.replace('youtu.be/', 'www.youtube.com/embed/')}
+                          title={selectedCourse.title}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          className="absolute inset-0 w-full h-full bg-black"
+                        />
+                      </div>
+
+                      <div className="mt-3 flex gap-3 justify-center items-center">
+                        <button onClick={() => setIsVideoWatched(true)} className="px-3 py-2 rounded-lg bg-green-600 hover:bg-green-500 text-sm text-white">Saya sudah menonton</button>
+                        <button onClick={() => setIsVideoWatched(false)} className="px-3 py-2 rounded-lg border border-slate-700 text-sm text-slate-300">Tandai belum</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <video
+                      src={selectedCourse.video}
+                      controls
+                      autoPlay
+                      onEnded={() => setIsVideoWatched(true)}
+                      className="w-full max-w-2xl mx-auto rounded-lg border border-slate-700 bg-black"
+                    />
+                  )
+                ) : (
+                  <div className="p-10 bg-slate-900 rounded-lg border border-slate-700 text-slate-400">Tidak ada video untuk course ini — Anda bisa langsung memulai kuis.</div>
+                )}
+              </div>
+
+              <div className="flex justify-center items-center gap-3">
+                <button
+                  onClick={() => {
+                    setCurrentQuestion(0);
+                    setScore(0);
+                    setViewState("quiz");
+                  }}
+                  disabled={!isVideoWatched && !!selectedCourse.video}
+                  className={`px-4 py-2 rounded-lg font-bold text-white text-sm transition-all ${isVideoWatched || !selectedCourse.video ? 'bg-blue-600 hover:bg-blue-500' : 'bg-slate-700/40 cursor-not-allowed'}`}
+                >
+                  {selectedCourse.video ? (isVideoWatched ? 'Start Quiz' : 'Tonton sampai selesai untuk memulai') : 'Start Quiz'}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* VIEW 4: SUCCESS */}
         {walletAddress && viewState === "success" && selectedCourse && (
           <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-xl mx-auto text-center">
@@ -349,7 +663,29 @@ export default function Home() {
                         <p className="text-slate-400 mb-6 text-sm">Nilai sempurna! Klaim sertifikat <strong className="text-white">{selectedCourse.title}</strong> sekarang.</p>
 
                         <div className="relative group cursor-pointer mb-8 w-full max-w-xs mx-auto">
-                            <img src="https://i.postimg.cc/WbN1qk4W/certificate-dummy.jpg" alt="Cert" className="rounded-lg border border-slate-700 w-full opacity-80 group-hover:opacity-100 transition-opacity" />
+                          {certImageUrl ? (
+                            <img src={certImageUrl} alt={`Certificate #${mintedTokenId ?? ''}`} className="rounded-lg border border-slate-700 w-full opacity-95 group-hover:opacity-100 transition-opacity" />
+                          ) : (
+                            <div className="rounded-lg border border-slate-700 w-full p-6 text-slate-400 bg-[#081021]">
+                              <div className="text-sm mb-2">Gambar sertifikat tidak ditemukan / sudah dihapus.</div>
+                              {mintedTokenId !== null && (
+                                <div className="text-xs font-mono text-slate-300">Token ID: #{mintedTokenId}</div>
+                              )}
+                              <div className="mt-3 flex gap-2 justify-center">
+                                {mintedTokenId !== null && (
+                                  <a href={`https://sepolia.etherscan.io/token/${CONTRACT_ADDRESS}?a=${mintedTokenId}`} target="_blank" className="text-xs bg-slate-800 px-3 py-1 rounded border border-slate-700 hover:bg-slate-700">Buka di Etherscan</a>
+                                )}
+                                {/* if txHash is present, let user view tx */}
+                                {txHash && (
+                                  <a href={`https://sepolia.etherscan.io/tx/${txHash}`} target="_blank" className="text-xs bg-slate-800 px-3 py-1 rounded border border-slate-700 hover:bg-slate-700">Lihat transaksi</a>
+                                )}
+                                {/* If tokenURI was discovered, add a link too (try to reuse certImageUrl->metadata if available) */}
+                                {mintedTokenURI && (
+                                  <a href={mintedTokenURI.startsWith('ipfs://') ? mintedTokenURI.replace(/^ipfs:\/\/(ipfs\/)?/, 'https://cloudflare-ipfs.com/ipfs/') : mintedTokenURI} target="_blank" rel="noreferrer" className="text-xs bg-slate-800 px-3 py-1 rounded border border-slate-700 hover:bg-slate-700">Lihat metadata</a>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         {!txHash ? (
@@ -378,7 +714,7 @@ export default function Home() {
                  <div className="bg-[#0f1524] border border-slate-800 p-8 rounded-2xl">
                     <h2 className="text-2xl font-bold text-white mb-2">Try Again</h2>
                     <p className="text-slate-400 mb-6 text-sm">Skor: {score}/{selectedCourse.questions.length}. Harus benar semua.</p>
-                    <button onClick={() => startQuiz(selectedCourse)} className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2 rounded-lg font-bold">Restart Quiz</button>
+                    <button onClick={() => startLearning(selectedCourse!)} className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2 rounded-lg font-bold">Restart</button>
                     <div className="mt-4"><button onClick={() => setViewState("dashboard")} className="text-slate-600 hover:text-slate-400 text-xs">Quit</button></div>
                 </div>
             )}

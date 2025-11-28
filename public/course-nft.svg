@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80">
+  <defs>
+    <linearGradient id="g3" x1="0" x2="1">
+      <stop offset="0" stop-color="#60a5fa"/>
+      <stop offset="1" stop-color="#a78bfa"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="80" rx="12" fill="#0b1220" />
+  <g transform="translate(10,10)">
+    <rect width="100" height="60" rx="8" fill="#0f1724" stroke="#111827" />
+    <g transform="translate(10,8)">
+      <path d="M8 4c8 0 12 8 16 8s8-8 16-8 12 8 12 8v20h-56z" fill="url(#g3)" />
+      <text x="4" y="46" fill="#c7d2fe" font-family="monospace" font-size="8">NFT &amp; Metaverse</text>
+    </g>
+  </g>
+</svg>

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 80">
+  <defs>
+    <linearGradient id="g2" x1="0" x2="1">
+      <stop offset="0" stop-color="#f59e0b"/>
+      <stop offset="1" stop-color="#ef4444"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="80" rx="12" fill="#0b1220" />
+  <g transform="translate(10,10)">
+    <rect width="100" height="60" rx="8" fill="#0f1724" stroke="#111827" />
+    <g transform="translate(14,8)">
+      <rect x="0" y="0" width="22" height="22" rx="3" fill="url(#g2)"/>
+      <path d="M28 4h36v14H28z" fill="#0b1220" stroke="#1f2937"/>
+      <path d="M28 28h36v8H28z" fill="#081021" stroke="#1f2937"/>
+      <text x="2" y="44" fill="#fde68a" font-family="monospace" font-size="8">Smart Contract</text>
+    </g>
+  </g>
+</svg>
