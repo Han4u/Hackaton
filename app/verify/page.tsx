@@ -1,8 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ethers } from "ethers";
 import { motion } from "framer-motion"; // Diperlukan jika menggunakan motion
-import { useSearchParams } from 'next/navigation';
 import Link from "next/link"; // 🔥 IMPORT BARU: Untuk navigasi
 import contractABI from "../abi.json"; 
 
@@ -19,8 +18,21 @@ interface NftMetadata {
 }
 
 export default function VerifyPage() {
-    const searchParams = useSearchParams();
-    const ownerFromQuery = searchParams?.get('owner') ?? "";
+    const [ownerFromQuery, setOwnerFromQuery] = useState("");
+
+    // useSearchParams causes build-time prerender errors in some setups.
+    // Instead read the query param on the client using window.location.
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const owner = params.get('owner') ?? "";
+                setOwnerFromQuery(owner);
+            } catch {
+                setOwnerFromQuery("");
+            }
+        }
+    }, []);
     const [tokenId, setTokenId] = useState("");
     const [ownerAddress, setOwnerAddress] = useState("");
     const [nftMetadata, setNftMetadata] = useState<NftMetadata | null>(null); // State baru
