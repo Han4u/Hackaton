@@ -1,6 +1,8 @@
 import fs from 'fs/promises';
 import path from 'path';
 import VerifyClient from './VerifyClient';
+// prevent prerendering during build — the page reads local files and uses client-side interactions
+export const dynamic = 'force-dynamic';
 import Link from 'next/link';
 
 type Meta = {
