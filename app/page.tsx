@@ -151,7 +151,7 @@ export default function Home() {
 
         // 4. PAKSA USER TANDA TANGAN (POP-UP METAMASK MUNCUL)
         // Panggil alert untuk UX di HP sebelum sign
-        alert("⚠️ PERHATIAN! sebelim lanjut anda haru login ke akun metamask anda dan tekan 'Sign' untuk masuk.");
+        alert("⚠️ PERHATIAN! sebelum lanjut anda harus login ke akun metamask anda dan tekan 'Sign' untuk masuk.");
         
         const signature = await signer.signMessage(message);
 
@@ -398,7 +398,9 @@ export default function Home() {
       {/* NAVBAR */}
       <nav className="fixed top-0 w-full p-4 sm:p-4 border-b border-slate-800 bg-[#050511]/90 backdrop-blur z-50 flex justify-between items-center">
         <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-linear-to-br from-purple-600 to-blue-600 rounded flex items-center justify-center font-bold text-lg">C</div>
+            <div className="w-8 h-8 rounded overflow-hidden border border-slate-700 bg-[#0b1220] flex items-center justify-center">
+              <Image src="/logo-new.png" alt="CertiBlock" width={32} height={32} unoptimized className="object-contain" />
+            </div>
             <h1 className="text-lg font-bold tracking-wide text-slate-200">
                 Certi<span className="text-blue-700">Block</span>
             </h1>
