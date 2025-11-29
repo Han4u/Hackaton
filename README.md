@@ -34,3 +34,10 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+how its works
+-buka hasil deploy web https://hackatoneisd.vercel.app/
+-harus mempunyai wallet metamask jagan khwatir klo saldo 0 karna kita akan memakai sepolia tesnet
+-masuk link https://cloud.google.com/application/web3/faucet/ethereum/sepolia unutk mendapatkan sepolia tesnet masukan wallet address etherium kamu dan get 0.05 sepholia tesnet maka kamu bisa lanjut untuk ke dashboard
+-buka course blockchain foundation unutk mencoba kuis nya dan kamu bisa tonnton dan skip jika mau quiznya ada 3 soal untuk jawaban b,b,a setelah   itu jika berhasil akan mendapatkan certi dan cetak certi,cetak certi akan meminta anda untuk mengakses meta mask untuk lanjut membuat nft -certificatenya tunggu beberapa saat untuk melihat detail transaksi kamu bisa menekan ether scan dan unutk melihat nftnya kamu bisa menekan rerible
+-dan kamu bisa melihat verifikasi nft certificate kamu di verfikasi di dashboard dan proses selesai selamat kamu sudah mencetak nft certificate pertama kamu
