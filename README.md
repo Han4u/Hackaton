@@ -37,7 +37,7 @@ Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/bui
 
 how its works
 -buka hasil deploy web https://hackatoneisd.vercel.app/
--harus mempunyai wallet metamask jagan khwatir klo saldo 0 karna kita akan memakai sepolia tesnet
--masuk link https://cloud.google.com/application/web3/faucet/ethereum/sepolia unutk mendapatkan sepolia tesnet masukan wallet address etherium kamu dan get 0.05 sepholia tesnet maka kamu bisa lanjut untuk ke dashboard
--buka course blockchain foundation unutk mencoba kuis nya dan kamu bisa tonnton dan skip jika mau quiznya ada 3 soal untuk jawaban b,b,a setelah   itu jika berhasil akan mendapatkan certi dan cetak certi,cetak certi akan meminta anda untuk mengakses meta mask untuk lanjut membuat nft -certificatenya tunggu beberapa saat untuk melihat detail transaksi kamu bisa menekan ether scan dan unutk melihat nftnya kamu bisa menekan rerible
--dan kamu bisa melihat verifikasi nft certificate kamu di verfikasi di dashboard dan proses selesai selamat kamu sudah mencetak nft certificate pertama kamu
+-harus mempunyai wallet metamask dulu dwonloud extension metamask di leptop kamu, jagan khwatir klo saldo 0 karna kita akan memakai sepolia tesnet
+-masuk link https://cloud.google.com/application/web3/faucet/ethereum/sepolia unutk mendapatkan sepolia tesnet, masukan wallet address etherium kamu dari metamask dan get 0.05 sepholia tesnet maka kamu bisa lanjut  ke dashboard
+-buka course blockchain foundation unutk mencoba kuis nya dan kamu bisa nonton dan skip jika mau, quiznya ada 3 soal untuk jawaban b,b,a setelah   itu jika berhasil akan mendapatkan certi dan cetak certi,cetak certi akan meminta anda untuk mengakses metamask untuk membayar fee gas unutk  lanjut membuat nft certificatenya tunggu beberapa saat untuk melihat detail transaksi kamu bisa menekan ether scan dan unutk melihat nftnya kamu bisa menekan rerible
+-dan kamu bisa melihat verifikasi nft certificate kamu di verfikasi di dashboard dan proses selesai selamat kamu sudah mencetak nft certificate pertama kamu di jaringan blockchain and welcome to web3🧟‍♂️
